@@ -3,15 +3,7 @@ from pymongo.server_api import ServerApi
 import pandas as pd
 import random
 from datetime import datetime, timedelta
-
-
-def medical_check(info):
-    if isinstance(info, str):
-        info = info.strip().lower()
-        if info in ["yes", "no", "not sure", "unknown", "n/a"]:
-            return info
-        else:
-            return "unknown"
+from time import time
 
 
 def adoption_check(rescue_date, adoption_period):
@@ -62,57 +54,204 @@ def adoption_check(rescue_date, adoption_period):
 
 def csv_to_json(row):
     return {
-        "name": row["Name"],
+        "name": row["Name"] if row["Name"] != "None" else None,
         "type": row["Type"],
         "age": int(row["Age"]),
         "breed": {
-            "primary": row["Breed1"] if row["Breed1"] != "None" else None,
-            "secondary": row["Breed2"] if row["Breed2"] != "None" else None,
+            "primary": row["Breed1"] if pd.notna(row["Breed1"]) and row["Breed1"] != "None" else None,
+            "secondary": row["Breed2"] if pd.notna(row["Breed2"]) and row["Breed2"] != "None" else None,
         },
         "gender": row["Gender"],
         "colors": list(filter(lambda x: x != "None" and pd.notna(x), [row["Color1"], row["Color2"], row["Color3"]])),
         "maturitySize": row["MaturitySize"],
         "furLength": row["FurLength"],
         "medical": {
-            "vaccinated": medical_check(row["Vaccinated"]),
-            "dewormed": medical_check(row["Dewormed"]),
-            "sterilized": medical_check(row["Sterilized"]),
+            "vaccinated": row["Vaccinated"],
+            "dewormed": row["Dewormed"],
+            "sterilized": row["Sterilized"],
             "health": row["Health"]
         },
         "quantity": int(row["Quantity"]),
         "fee": int(row["Fee"]),
         "location": row["City"],
         "rescuerId": row["RescuerID"],
-        "description": row["Description"],
-        "adoption": adoption_check(row['RescueDate'], row['AdoptionSpeed']),
+        "rescueDate": pd.to_datetime(row['RescueDate']),
+        "description": row["Description"] if row["Description"] != "None" else None,
+        "adoption": adoption_check(pd.to_datetime(row['RescueDate']), row['AdoptionSpeed']),
     }
 
 
-def load_csv_to_documents(csv_path):
+def create_database(csv_path):
     df = pd.read_csv(csv_path)
-    df = df[:10]
-    # Optionally fill NaN values with 'None' string or real Python None
-    df.fillna("None", inplace=True)
+    df.fillna('None', inplace=True)
     documents = df.apply(csv_to_json, axis=1).tolist()
     return documents
 
 
-uri = "mongodb+srv://dbNonRelProject:project123@projectcluster.u5uvzky.mongodb.net/?retryWrites=true&w=majority&appName=ProjectCluster"
+uri = ("mongodb+srv://dbNonRelProject:project123@projectcluster.u5uvzky.mongodb.net/"
+       "?retryWrites=true&w=majority&appName=ProjectCluster")
 
 # Create a new client and connect to the server
 client = MongoClient(uri, server_api=ServerApi('1'))
 
-# Send a ping to confirm a successful connection
-try:
-    client.admin.command('ping')
-    print("Pinged your deployment. You successfully connected to MongoDB!")
-    # Create or access database and collection
-    db = client["petsDB"]
-    collection = db["petsInformation"]
+schema = {
+    "validator": {
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": ["name", "type", "age", "breed", "gender", "colors", "maturitySize", "furLength", "medical",
+                         "quantity", "fee", "rescuerId", "rescueDate", "adoption", "description", "location"],
+            "properties": {
+                "name": {
+                    "bsonType": ["string", "null"],
+                    "description": "Name of the animal"
+                },
+                "type": {
+                    "bsonType": "string",
+                    "description": "Type of animal (e.g., Dog, Cat)"
+                },
+                "age": {
+                    "bsonType": "int",
+                    "minimum": 0,
+                    "description": "Age in years"
+                },
+                "breed": {
+                    "bsonType": "object",
+                    "properties": {
+                        "primary": {
+                            "bsonType": ["string", "null"],
+                            "description": "Primary breed"
+                        },
+                        "secondary": {
+                            "bsonType": ["string", "null"],
+                            "description": "Secondary breed if mixed"
+                        }
+                    }
+                },
+                "gender": {
+                    "enum": ["Male", "Female", "Mixed", "Unknown"],
+                    "description": "Gender of the animal (Mixed if many animals)"
+                },
+                "colors": {
+                    "bsonType": "array",
+                    "items": {
+                        "bsonType": "string",
+                        "description": "Color of the animal"
+                    }
+                },
+                "maturitySize": {
+                    "enum": ["Small", "Medium", "Large", "Extra Large", "Unknown"],
+                    "description": "Expected size of grown animal"
+                },
+                "furLength": {
+                    "enum": ["Short", "Medium", "Long", "Bald", "Unknown"],
+                    "description": "Length of fur"
+                },
+                "medical": {
+                    "bsonType": "object",
+                    "properties": {
+                        "vaccinated": {
+                            "enum": ["Yes", "No", "Not sure", "Unknown"],
+                            "description": "Vaccination status"
+                        },
+                        "dewormed": {
+                            "enum": ["Yes", "No", "Not sure", "Unknown"],
+                            "description": "Deworming status"
+                        },
+                        "sterilized": {
+                            "enum": ["Yes", "No", "Not sure", "Unknown"],
+                            "description": "Sterilization status"
+                        },
+                        "health": {
+                            "enum": ["Healthy", "Minor Injury", "Serious Injury", "Unknown"],
+                            "description": "Overall health status"
+                        }
+                    }
+                },
+                "quantity": {
+                    "bsonType": "int",
+                    "minimum": 1,
+                    "description": "Number of animals in this record"
+                },
+                "fee": {
+                    "bsonType": "int",
+                    "minimum": 0,
+                    "description": "Adoption fee"
+                },
+                "location": {
+                    "bsonType": "string",
+                    "description": "Location where animal is available"
+                },
+                "rescuerId": {
+                    "bsonType": "string",
+                    "description": "ID of the rescuer"
+                },
+                "rescueDate": {
+                    "bsonType": "date",
+                    "description": "Date when animal was rescued"
+                },
+                "description": {
+                    "bsonType": ["string", "null"],
+                    "description": "Description of the animal"
+                },
+                "adoption": {
+                    "bsonType": "object",
+                    "required": ["adopted"],
+                    "properties": {
+                        "adopted": {
+                            "bsonType": "bool",
+                            "description": "Whether the animal has been adopted"
+                        },
+                        "adoptionDate": {
+                            "bsonType": ["date", "null"],
+                            "description": "Date of adoption if adopted"
+                        },
+                        "adoptionPeriod": {
+                            "enum": ["Same Day", "1-7 Days", "8-30 Days", "31-90 Days", "Over 100 Days", "null"],
+                            "description": "How long it took to be adopted (period)"
+                        },
+                        "daysInShelter": {
+                            "bsonType": ["int", "null"],
+                            "description": "Number of days in shelter"
+                        }
+                    }
+                }
+            }
 
-    docs = load_csv_to_documents("./data/processed_pets.csv")
+        }
+    },
+    "validationLevel": "strict",
+    "validationAction": "error"
+}
+
+try:
+    # Start stoper
+    start = time()
+
+    # Test connection
+    client.admin.command('ping')
+    print("✅ Connected to MongoDB!")
+
+    # Access the database
+    db = client["petsDB"]
+
+    # Drop existing collection if it exists (optional but recommended for development)
+    if "petsInformation" in db.list_collection_names():
+        db.drop_collection("petsInformation")
+        print("🔁 Dropped existing 'petsInformation' collection.")
+
+    # Create new collection with schema validation
+    db.create_collection("petsInformation", **schema)
+    print("📦 Created 'petsInformation' collection with schema validation.")
+
+    # Load data from CSV and insert
+    docs = create_database("pets.csv")
+    collection = db["petsInformation"]  # Get the newly created collection
     collection.insert_many(docs)
-    print(f"Inserted {len(docs)} documents into MongoDB")
+    print(f"✅ Inserted {len(docs)} documents into MongoDB.")
+
+    # Stop stoper
+    stop = time()
+    print(f"⌚️ The database creation process took: {round(stop - start, 2)} sec")
 
 except Exception as e:
-    print(e)
+    print("❌ Error occurred:", e)
