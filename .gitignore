@@ -195,3 +195,6 @@ cython_debug/
 
 # Data that was used to create prepare dataset
 data/
+
+# Hide Jupyter notebooks
+*.ipynb
