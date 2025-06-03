@@ -194,4 +194,4 @@ cython_debug/
 .cursorindexingignore
 
 # Data that was used to create prepare dataset
-.data/
+data/
