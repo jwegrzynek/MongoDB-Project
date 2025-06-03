@@ -1,16 +1,63 @@
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import pandas as pd
+import random
+from datetime import datetime, timedelta
 
 
-def medical_check(value):
-    if isinstance(value, str):
-        value = value.strip().lower()
-        if value in ["yes", "no", "not sure", "unknown", "n/a"]:
-            return value
+def medical_check(info):
+    if isinstance(info, str):
+        info = info.strip().lower()
+        if info in ["yes", "no", "not sure", "unknown", "n/a"]:
+            return info
         else:
             return "unknown"
 
+
+def adoption_check(rescue_date, adoption_period):
+    today = datetime.today()
+    if adoption_period == 'Same Day':
+        days = 0
+    elif adoption_period == '1-7 Days':
+        days = random.randint(1, 7)
+    elif adoption_period == '8-30 Days':
+        days = random.randint(8, 30)
+    elif adoption_period == '31-90 Days':
+        days = random.randint(31, 90)
+    else:
+        days = random.choices(
+            [
+                random.randint(90, 150),
+                random.randint(151, 250),
+                random.randint(251, 365),
+                random.randint(366, 700)
+            ],
+            [0.6, 0.3, 0.17, 0.03],
+            k=1
+        )[0]
+
+    adoption_date = rescue_date + timedelta(days=days)
+    random_hour = random.randint(8, 17)
+    random_minute = random.randint(0, 59)
+    random_second = random.randint(0, 59)
+
+    adoption_date = adoption_date.replace(
+        hour=random_hour,
+        minute=random_minute,
+        second=random_second
+    )
+
+    if adoption_date <= today:
+        return {
+            "adopted": True,
+            "adoptionDate": adoption_date,
+            "adoptionPeriod": adoption_period,
+            "daysInShelter": (adoption_date - rescue_date).days
+        }
+    else:
+        return {
+            "adopted": False
+        }
 
 
 def csv_to_json(row):
@@ -27,19 +74,17 @@ def csv_to_json(row):
         "maturitySize": row["MaturitySize"],
         "furLength": row["FurLength"],
         "medical": {
-            "vaccinated": medical_check(["Vaccinated"]),
-            "dewormed": medical_check(["Dewormed"]),
-            "sterilized": medical_check(["Sterilized"]),
+            "vaccinated": medical_check(row["Vaccinated"]),
+            "dewormed": medical_check(row["Dewormed"]),
+            "sterilized": medical_check(row["Sterilized"]),
             "health": row["Health"]
         },
         "quantity": int(row["Quantity"]),
         "fee": int(row["Fee"]),
-        "location": {
-            "state": row["State"]
-        },
+        "location": row["City"],
         "rescuerId": row["RescuerID"],
         "description": row["Description"],
-        "adoptionSpeed": row["AdoptionSpeed"]
+        "adoption": adoption_check(row['RescueDate'], row['AdoptionSpeed']),
     }
 
 
