@@ -33,18 +33,20 @@ Baza danych zawiera informacje o uratowanych zwierzętach oraz informacje związ
 | `age`             | `int ≥ 0`         | ✅        | Wiek zwierzęcia w latach                             |
 | `breed.primary`   | `string` / `null` | ✅        | Główna rasa                                          |
 | `breed.secondary` | `string` / `null` | ✅        | Drugorzędna rasa (jeśli dotyczy)                     |
-| `gender`          | `string`            | ✅        | `Male`, `Female`, `Mixed`, `Unknown`                 |
+| `gender`          | `string`          | ✅        | `Male`, `Female`, `Mixed`, `Unknown`                 |
 | `colors`          | `array[string]`   | ✅        | Lista kolorów sierści                                |
-| `maturitySize`    | `string`            | ✅        | `Small`, `Medium`, `Large`, `Extra Large`, `Unknown` |
-| `furLength`       | `string`            | ✅        | `Short`, `Medium`, `Long`, `Bald`, `Unknown`         |
+| `maturitySize`    | `string`          | ✅        | `Small`, `Medium`, `Large`, `Extra Large`, `Unknown` |
+| `furLength`       | `string`          | ✅        | `Short`, `Medium`, `Long`, `Bald`, `Unknown`         |
+| `medical`         | `object`          | ✅        | Informacje medyczne (szczegóły poniżej)              |
 | `quantity`        | `int ≥ 1`         | ✅        | Liczba zwierząt w zgłoszeniu                         |
 | `fee`             | `int ≥ 0`         | ✅        | Opłata adopcyjna                                     |
 | `location`        | `string`          | ✅        | Miasto lub lokalizacja zwierzęcia                    |
 | `rescuerId`       | `string`          | ✅        | Identyfikator osoby lub organizacji ratującej        |
 | `rescueDate`      | `date`            | ✅        | Data uratowania zwierzęcia                           |
 | `description`     | `string` / `null` | ✅        | Opis zwierzęcia (jeśli dostępny)                     |
+| `adoption`        | `object`          | ✅        | Informacje adopcji (szczegóły poniżej)               |
 
-## 🏥 Informacje medyczne (obiekt `medical`)
+## 🏥 Informacje medyczne (`medical`)
 
 | Pole         | Typ    | Wartości dozwolone                                     | Wymagane | Opis                |
 | ------------ | ------ | ------------------------------------------------------ | -------- | ------------------- |
@@ -55,11 +57,11 @@ Baza danych zawiera informacje o uratowanych zwierzętach oraz informacje związ
 
 
 
-## 🏡 Informacje o adopcji (obiekt `adoption`)
+## 🏡 Informacje o adopcji (`adoption`)
 
 | Pole             | Typ             | Wymagane | Opis                                                                                |
 | ---------------- | --------------- | -------- | ----------------------------------------------------------------------------------- |
-| `adopted`        | `bool`          | ✅        | Czy zwierzę zostało adoptowane                                                      |
-| `adoptionDate`   | `date` / `null` | ❌        | Data adopcji (jeśli dotyczy)                                                        |
+| `adopted`        | `bool`          | ✅        | Czy zwierzę zostało adoptowane                                                        |
+| `adoptionDate`   | `date` / `null` | ❌        | Data adopcji (jeśli dotyczy)                                                          |
 | `adoptionPeriod` | `string` / `null` | ❌        | Czas do adopcji: `Same Day`, `1-7 Days`, `8-30 Days`, `31-90 Days`, `Over 100 Days` |
-| `daysInShelter`  | `int` / `null`  | ❌        | Liczba dni spędzonych w schronisku      
+| `daysInShelter`  | `int` / `null`  | ❌        | Liczba dni spędzonych w schronisku                                                    |
