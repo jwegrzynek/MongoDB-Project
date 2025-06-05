@@ -14,6 +14,11 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+### ✨ Tworzenie kontenera
+```bash
+docker run --name mongo -p 27017:27017 -d mongo:noble
+```
+
 ### ✨ Tworzenie bazy danych
 ```bash
 python create_database.py
