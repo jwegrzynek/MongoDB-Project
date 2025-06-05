@@ -222,15 +222,7 @@ def return_schema():
     return schema
 
 
-def create_database(
-        csv_path: str = "pets.csv",
-        database_uri: str = ("mongodb+srv://dbNonRelProject:project123@projectcluster.u5uvzky.mongodb.net/"
-                             "?retryWrites=true&w=majority&appName=ProjectCluster"),
-        database_name: str = "petsDB",
-        collection_name: str = "petsInformation",
-        schema: dict = return_schema
-
-):
+def create_database(csv_path: str, database_uri: str, database_name: str, collection_name: str, schema: dict):
     # Create a new client and connect to the server
     client = MongoClient(database_uri, server_api=ServerApi('1'))
 
@@ -269,5 +261,17 @@ def create_database(
 
 
 if __name__ == "__main__":
-    create_database()
+    database_uri = ("mongodb+srv://dbNonRelProject:project123@projectcluster.u5uvzky.mongodb.net/"
+                    "?retryWrites=true&w=majority&appName=ProjectCluster")
+    csv_path = "pets.csv"
+    database_name = "petsDB"
+    collection_name = "petsInformation"
+    schema = return_schema()
 
+    create_database(
+        csv_path=csv_path,
+        database_uri=database_uri,
+        database_name=database_name,
+        collection_name=collection_name,
+        schema=schema
+    )
