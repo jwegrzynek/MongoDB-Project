@@ -123,6 +123,7 @@ def return_schema():
                         }
                     },
                     "gender": {
+                        "bsonType": "string",
                         "enum": ["Male", "Female", "Mixed", "Unknown"],
                         "description": "Gender of the animal (Mixed if many animals)"
                     },
@@ -134,10 +135,12 @@ def return_schema():
                         }
                     },
                     "maturitySize": {
+                        "bsonType": "string",
                         "enum": ["Small", "Medium", "Large", "Extra Large", "Unknown"],
                         "description": "Expected size of grown animal"
                     },
                     "furLength": {
+                        "bsonType": "string",
                         "enum": ["Short", "Medium", "Long", "Bald", "Unknown"],
                         "description": "Length of fur"
                     },
@@ -146,18 +149,22 @@ def return_schema():
                         "required": ["vaccinated", "dewormed", "sterilized", "health"],
                         "properties": {
                             "vaccinated": {
+                                "bsonType": "string",
                                 "enum": ["Yes", "No", "Not sure", "Unknown"],
                                 "description": "Vaccination status"
                             },
                             "dewormed": {
+                                "bsonType": "string",
                                 "enum": ["Yes", "No", "Not sure", "Unknown"],
                                 "description": "Deworming status"
                             },
                             "sterilized": {
+                                "bsonType": "string",
                                 "enum": ["Yes", "No", "Not sure", "Unknown"],
                                 "description": "Sterilization status"
                             },
                             "health": {
+                                "bsonType": "string",
                                 "enum": ["Healthy", "Minor Injury", "Serious Injury", "Unknown"],
                                 "description": "Overall health status"
                             }
@@ -202,6 +209,7 @@ def return_schema():
                                 "description": "Date of adoption if adopted"
                             },
                             "adoptionPeriod": {
+                                "bsonType": "string",
                                 "enum": ["Same Day", "1-7 Days", "8-30 Days", "31-90 Days", "Over 100 Days", "null"],
                                 "description": "How long it took to be adopted (period)"
                             },
