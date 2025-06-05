@@ -129,3 +129,4 @@ class PetAdoptionDatabase:
         }
         pets = list(self.collection.find(query))
         return pets
+
