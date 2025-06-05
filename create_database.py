@@ -269,8 +269,9 @@ def create_database(csv_path: str, database_uri: str, database_name: str, collec
 
 
 if __name__ == "__main__":
-    database_uri = ("mongodb+srv://dbNonRelProject:project123@projectcluster.u5uvzky.mongodb.net/"
-                    "?retryWrites=true&w=majority&appName=ProjectCluster")
+    # database_uri = ("mongodb+srv://dbNonRelProject:project123@projectcluster.u5uvzky.mongodb.net/"
+    #                 "?retryWrites=true&w=majority&appName=ProjectCluster")
+    database_uri = "mongodb://localhost:27017"
     csv_path = "pets.csv"
     database_name = "petsDB"
     collection_name = "petsInformation"
