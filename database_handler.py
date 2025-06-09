@@ -1,6 +1,7 @@
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
-from typing import Union,Optional
+from typing import Union, Optional
+import pymongo
 from bson import ObjectId
 import pprint
 from typing import List
@@ -26,8 +27,16 @@ class PetAdoptionDatabase:
             self.db = None
             self.collection = None
 
+    def _get_next_sequence(self):
+        counter = self.db.counters.find_one_and_update(
+            {"_id": "petID"},
+            {"$inc": {"seq": 1}},
+            upsert=True,
+            return_document=pymongo.ReturnDocument.AFTER
+        )
+        return counter["seq"]
 
-   # CRUD - Create
+    # CRUD - Create
     def create_pet(self, pet_data: dict) -> Optional[dict]:
         """
         Tworzy nowy dokument w kolekcji z danymi 'pet_data'.
@@ -36,6 +45,8 @@ class PetAdoptionDatabase:
         if self.collection is None:
             print("No connection to the collection.")
             return None
+
+        pet_data["_id"] = self._get_next_sequence()
 
         result = self.collection.insert_one(pet_data)
         if result.inserted_id:
@@ -65,10 +76,6 @@ class PetAdoptionDatabase:
         else:
             print("No documents found.")
         return results
-
-
-    #
-
 
     # CRUD - Update
     def update_pet(self, query: dict, new_values: dict) -> Optional[dict]:
@@ -128,35 +135,42 @@ class PetAdoptionDatabase:
             print("No available pets found.")
         return available_pets
 
-    # Wyszukiwanie zwierząt do wybranej kwoty
-    def find_pets_by_fee(self, max_fee: int) -> list:
-        """
-        Zwraca listę zwierząt, których opłata adopcyjna nie przekracza podanej kwoty.
-        """
-        if self.collection is None:
-            print("No connection to the collection.")
-            return []
-        pets = list(self.collection.find({"fee": {"$lte": max_fee}}))
-        return pets
+    # # Wyszukiwanie zwierząt do wybranej kwoty
+    # def find_pets_by_fee(self, max_fee: int) -> list:
+    #     """
+    #     Zwraca listę zwierząt, których opłata adopcyjna nie przekracza podanej kwoty.
+    #     """
+    #     if self.collection is None:
+    #         print("No connection to the collection.")
+    #         return []
+    #     pets = list(self.collection.find({"fee": {"$lte": max_fee}}))
+    #     return pets
 
-
-    # Do ulepszenia - użyć powyższych funkcji
-    def find_pets_to_adoption(self, pet_type: str, max_age: int, available: bool, max_fee: int) -> list:
+    def find_pets_to_adoption(self, pet_type: str = "any", max_age: int = -1, max_fee: int = -1,
+                              location: str = 'any') -> list:
         """
         Zwraca listę zwierząt danego typu, młodszych niż max_age i dostępnych do adopcji.
         """
         if self.collection is None:
             print("No connection to the collection.")
             return []
-        query = {
-            "type": pet_type,
-            "age": {"$lt": max_age},
-            "adoption.adopted": False, # lub "available": available, zależnie od schematu
-            "fee": {"$lte": max_fee}
-        }
+
+        query = {"adoption.adopted": False}
+
+        if pet_type.lower() != "any":
+            query["type"] = pet_type
+
+        if max_age >= 0:
+            query["age"] = {"$lte": max_age}
+
+        if max_fee >= 0:
+            query["fee"] = {"$lte": max_fee}
+
+        if location.lower() != "any":
+            query["location"] = location
+
         pets = list(self.collection.find(query))
         return pets
-
 
     # metoda Weroniki
     def find_pets_by_description(self, keywords: list[str]) -> list:
@@ -190,12 +204,11 @@ class PetAdoptionDatabase:
 
     #
 
-
     def get_pets_by_age(
-        self,
-        order: str,
-        n: int = 1,
-        adopted: Optional[bool] = None
+            self,
+            order: str,
+            n: int = 1,
+            adopted: Optional[bool] = None
     ) -> List[dict]:
 
         """
@@ -240,11 +253,11 @@ class PetAdoptionDatabase:
         return pets
 
     def get_pets_by_shelter_stay(
-        self,
-        stay_type: str,
-        n: int = 1,
-        threshold_months: Optional[int] = None,
-        comparison: Optional[str] = None
+            self,
+            stay_type: str,
+            n: int = 1,
+            threshold_months: Optional[int] = None,
+            comparison: Optional[str] = None
     ) -> List[dict]:
         """
         Returns a list of pets filtered and sorted by shelter stay duration.
@@ -299,7 +312,6 @@ class PetAdoptionDatabase:
 
         return pets
 
-
     def ready_for_adoption(self) -> List[dict]:
         """
         Prints pets ready for adoption:
@@ -333,7 +345,7 @@ class PetAdoptionDatabase:
 
         return pets
 
-    def is_ready_for_adoption(self, pet_id: Union[str, ObjectId]) -> Optional[bool]:
+    def is_ready_for_adoption(self, pet_id: int) -> Optional[bool]:
         """
         Checks if the pet with the given id is ready for adoption.
 
@@ -355,7 +367,7 @@ class PetAdoptionDatabase:
             return None
 
         try:
-            oid = pet_id if isinstance(pet_id, ObjectId) else ObjectId(pet_id)
+            oid = pet_id if isinstance(pet_id, int) else int(pet_id)
             pet = self.collection.find_one({"_id": oid})
 
             if pet is None:
@@ -367,11 +379,11 @@ class PetAdoptionDatabase:
             medical = pet.get("medical", {})
 
             is_ready = (
-                adoption.get("adopted") is False and
-                medical.get("vaccinated") == "Yes" and
-                medical.get("dewormed") == "Yes" and
-                medical.get("sterilized") == "Yes" and
-                medical.get("health") == "Healthy"
+                    adoption.get("adopted") is False and
+                    medical.get("vaccinated") == "Yes" and
+                    medical.get("dewormed") == "Yes" and
+                    medical.get("sterilized") == "Yes" and
+                    medical.get("health") == "Healthy"
             )
 
             if is_ready:
@@ -384,4 +396,3 @@ class PetAdoptionDatabase:
         except Exception as e:
             print(f"Error checking adoption readiness: {e}")
             return None
-
