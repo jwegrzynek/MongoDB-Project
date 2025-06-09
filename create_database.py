@@ -1,5 +1,6 @@
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+import pymongo
 import pandas as pd
 import random
 from datetime import datetime, timedelta
@@ -7,7 +8,7 @@ from time import time
 
 
 def adoption_check(rescue_date, adoption_period):
-    today = datetime.today()
+    today = datetime(2025, 6, 6, 12, 30)
     if adoption_period == 'Same Day':
         days = 0
     elif adoption_period == '1-7 Days':
@@ -44,7 +45,7 @@ def adoption_check(rescue_date, adoption_period):
             "adopted": True,
             "adoptionDate": adoption_date,
             "adoptionPeriod": adoption_period,
-            "daysInShelter": (adoption_date - rescue_date).days
+            "daysInShelter": (adoption_date.date() - rescue_date.date()).days
         }
     else:
         return {
@@ -54,6 +55,7 @@ def adoption_check(rescue_date, adoption_period):
 
 def row_to_document(row):
     return {
+        "_id": row["petIndex"],
         "name": row["Name"] if row["Name"] != "None" else None,
         "type": row["Type"],
         "age": int(row["Age"]),
@@ -84,6 +86,7 @@ def row_to_document(row):
 def documents_from_csv(csv_path):
     df = pd.read_csv(csv_path)
     df.fillna('None', inplace=True)
+    df['petIndex'] = range(1, len(df) + 1)
     documents = df.apply(row_to_document, axis=1).tolist()
     return documents
 
@@ -93,9 +96,15 @@ def return_schema():
         "validator": {
             "$jsonSchema": {
                 "bsonType": "object",
-                "required": ["name", "type", "age", "breed", "gender", "colors", "maturitySize", "furLength", "medical",
+                "required": ["_id", "name", "type", "age", "breed", "gender", "colors", "maturitySize", "furLength",
+                             "medical",
                              "quantity", "fee", "rescuerId", "rescueDate", "adoption", "description", "location"],
                 "properties": {
+                    "_id": {
+                        "bsonType": "int",
+                        "minimum": 1,
+                        "description": "Custom auto-incrementing integer ID"
+                    },
                     "name": {
                         "bsonType": ["string", "null"],
                         "description": "Name of the animal"
@@ -107,7 +116,7 @@ def return_schema():
                     "age": {
                         "bsonType": "int",
                         "minimum": 0,
-                        "description": "Age in years"
+                        "description": "Age in months"
                     },
                     "breed": {
                         "bsonType": "object",
@@ -260,6 +269,16 @@ def create_database(csv_path: str, database_uri: str, database_name: str, collec
         collection.insert_many(docs)
         print(f"✅ Inserted {len(docs)} documents into MongoDB.")
 
+        # Creating id counter collection
+        max_id_doc = collection.find_one(sort=[("_id", pymongo.DESCENDING)])
+        max_id = max_id_doc["_id"] if max_id_doc else 0
+        db.counters.update_one(
+            {"_id": "petID"},
+            {"$set": {"seq": max_id}},
+            upsert=True
+        )
+        print(f"🔢 Initialized counter to {max_id}")
+
         # Stop stoper
         stop = time()
         print(f"⌚️ The database creation process took: {round(stop - start, 2)} sec")
@@ -269,9 +288,9 @@ def create_database(csv_path: str, database_uri: str, database_name: str, collec
 
 
 if __name__ == "__main__":
-    # database_uri = ("mongodb+srv://dbNonRelProject:project123@projectcluster.u5uvzky.mongodb.net/"
-    #                 "?retryWrites=true&w=majority&appName=ProjectCluster")
-    database_uri = "mongodb://localhost:27017"
+    database_uri = ("mongodb+srv://dbNonRelProject:project123@projectcluster.u5uvzky.mongodb.net/"
+                    "?retryWrites=true&w=majority&appName=ProjectCluster")
+    # database_uri = "mongodb://localhost:27017"
     csv_path = "pets.csv"
     database_name = "petsDB"
     collection_name = "petsInformation"
