@@ -105,7 +105,7 @@ if __name__ == "__main__":
     # All cities, May 2024
     print(pet_db.adoption_rescue_stats(month=5, year=2024, adopted=True, rescued=True, limit=5))
 
-    # Only selected cities (adopted, rescued
+    # Only selected cities (adopted, rescued, in 2023, ascending)
     print(pet_db.adoption_rescue_stats(city=["Gdańsk", "Lębork", "Sopot"], year=2023, rescued=True, mode='groupby',
                                        order=1))
 
