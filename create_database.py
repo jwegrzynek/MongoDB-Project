@@ -20,7 +20,7 @@ def adoption_check(rescue_date, adoption_period):
     else:
         days = random.choices(
             [
-                random.randint(90, 150),
+                random.randint(91, 150),
                 random.randint(151, 250),
                 random.randint(251, 365),
                 random.randint(366, 700)
@@ -219,7 +219,7 @@ def return_schema():
                             },
                             "adoptionPeriod": {
                                 "bsonType": "string",
-                                "enum": ["Same Day", "1-7 Days", "8-30 Days", "31-90 Days", "Over 100 Days", "null"],
+                                "enum": ["Same Day", "1-7 Days", "8-30 Days", "31-90 Days", "Over 90 Days", "null"],
                                 "description": "How long it took to be adopted (period)"
                             },
                             "daysInShelter": {
@@ -288,9 +288,9 @@ def create_database(csv_path: str, database_uri: str, database_name: str, collec
 
 
 if __name__ == "__main__":
-    database_uri = ("mongodb+srv://dbNonRelProject:project123@projectcluster.u5uvzky.mongodb.net/"
-                    "?retryWrites=true&w=majority&appName=ProjectCluster")
-    # database_uri = "mongodb://localhost:27017"
+    # database_uri = ("mongodb+srv://dbNonRelProject:project123@projectcluster.u5uvzky.mongodb.net/"
+    #                "?retryWrites=true&w=majority&appName=ProjectCluster")
+    database_uri = "mongodb://localhost:27017"
     csv_path = "pets.csv"
     database_name = "petsDB"
     collection_name = "petsInformation"
