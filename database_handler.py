@@ -27,6 +27,21 @@ class PetAdoptionDatabase:
             self.db = None
             self.collection = None
 
+    @staticmethod
+    def return_period(days_passed: int):
+        if days_passed == 0:
+            return "Same Day"
+        elif 1 <= days_passed <= 7:
+            return "1-7 Days"
+        elif 8 <= days_passed <= 30:
+            return "8-30 Days"
+        elif 31 <= days_passed <= 90:
+            return "31-90 Days"
+        elif days_passed > 90:
+            return "Over 90 Days"
+        else:
+            return None
+
     def _get_next_sequence(self):
         counter = self.db.counters.find_one_and_update(
             {"_id": "petID"},
@@ -367,8 +382,7 @@ class PetAdoptionDatabase:
             return None
 
         try:
-            oid = pet_id if isinstance(pet_id, int) else int(pet_id)
-            pet = self.collection.find_one({"_id": oid})
+            pet = self.collection.find_one({"_id": pet_id})
 
             if pet is None:
                 print(f"No pet found with id {pet_id}")
@@ -396,3 +410,42 @@ class PetAdoptionDatabase:
         except Exception as e:
             print(f"Error checking adoption readiness: {e}")
             return None
+
+    def adopt_pet(self, pet_id: int) -> dict:
+        if self.collection is None:
+            print("No connection to the collection.")
+            return {}
+
+        try:
+            pet = self.collection.find_one({"_id": pet_id})
+            if pet is None:
+                print(f"No pet found with id {pet_id}")
+                return {}
+
+            if pet.get("adoption", {}).get("adopted", False):
+                print(f"Pet with id {pet_id} is already adopted.")
+                return {}
+
+            # Update the pet's adoption status
+            today = datetime.today().date()
+            rescue_date = pet.get("rescueDate").date()
+            days_in_shelter = (today - rescue_date).days
+
+            self.collection.update_one(
+                {"_id": pet_id},
+                {"$set": {
+                    "adoption.adopted": True,
+                    "adoption.adoptionDate": datetime.today(),
+                    "adoption.adoptionPeriod": self.return_period(days_in_shelter),
+                    "adoption.daysInShelter": days_in_shelter
+                }
+                }
+            )
+
+            adopted_pet = self.collection.find_one({"_id": pet_id})
+            print(f"You adopted pet {adopted_pet.get('name')} (id: {adopted_pet.get('_id')})!!!")
+            return adopted_pet
+
+        except Exception as e:
+            print(f"Error during adoption process: {e}")
+            return {}
