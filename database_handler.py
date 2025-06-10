@@ -2,7 +2,7 @@ import hashlib
 import random
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
-from typing import Union, Optional
+from typing import Optional
 import pymongo
 from bson import ObjectId
 import pprint
@@ -22,7 +22,7 @@ class PetAdoptionDatabase:
             self.collection = self.db[self.collection_name]
             # test connection
             self.client.admin.command('ping')
-            print("Connected to MongoDB")
+            print("Connected to MongoDB!\n")
         except Exception as e:
             print("Failed to connect to MongoDB:", e)
             self.client = None
@@ -140,8 +140,8 @@ class PetAdoptionDatabase:
     # CRUD - Read
     def read_pets(self, query: dict = {}) -> List[dict]:
         """
-        Zwraca listę dokumentów spełniających warunek 'query'.
-        Jeśli query jest puste, zwraca wszystkie dokumenty.
+        Returns a list of pet documents matching the given query.
+        If no query is provided, returns all documents in the collection.
         """
         if self.collection is None:
             print("No connection to the collection.")
@@ -159,8 +159,8 @@ class PetAdoptionDatabase:
     # CRUD - Update
     def update_pet(self, query: dict, new_values: dict) -> Optional[dict]:
         """
-        Aktualizuje jeden dokument spełniający warunek 'query' nowymi wartościami 'new_values'.
-        Zwraca zaktualizowany dokument lub None, jeśli nie znaleziono.
+        Updates a single pet document that matches the given query with the provided new values.
+        Returns the updated document if the update was successful, or None if no document was updated or found.
         """
         if self.collection is None:
             print("No connection to the collection.")
@@ -179,8 +179,8 @@ class PetAdoptionDatabase:
     # CRUD - Delete
     def delete_pet(self, query: dict) -> Optional[dict]:
         """
-        Usuwa jeden dokument spełniający warunek 'query'.
-        Zwraca usunięty dokument lub None, jeśli nie znaleziono.
+        Deletes a single pet document that matches the given query.
+        Returns the deleted document if found and deleted, or None if no match was found.
         """
         if self.collection is None:
             print("No connection to the collection.")
@@ -198,8 +198,19 @@ class PetAdoptionDatabase:
     def find_pets_for_adoption(self, pet_type: str = "any", max_age: int = -1, max_fee: int = -1,
                                location: str = 'any', maturity_size: str = 'any', fur_length: str = 'any') -> list:
         """
-        Zwraca listę zwierząt danego typu, młodszych niż max_age i dostępnych do adopcji.
-        """
+        Returns a list of pets that are available for adoption, filtered by optional criteria.
+
+        Args:
+            pet_type (str): Type of pet to search for (e.g., 'Dog', 'Cat'). Use 'any' to ignore this filter.
+            max_age (int): Maximum age in months. Use -1 to ignore this filter.
+            max_fee (int): Maximum adoption fee. Use -1 to ignore this filter.
+            location (str): Location of the pet. Use 'any' to search across all locations.
+            maturity_size (str): Maturity size of the pet. Use 'any' to ignore this filter.
+            fur_length (str): Length of the pet's fur. Use 'any' to ignore this filter.
+
+        Returns:
+            list: A list of matching pet documents, or an empty list if none found.
+    """
         if self.collection is None:
             print("No connection to the collection.")
             return []
@@ -234,14 +245,20 @@ class PetAdoptionDatabase:
 
     def find_pets_by_description(self, keywords: list[str]) -> list:
         """
-        Zwraca listę dostępnych zwierząt do adopcji, których opis zawiera dowolne z podanych słów kluczowych.
+        Returns a list of pets available for adoption whose descriptions contain any of the provided keywords.
+
+        Args:
+            keywords (list[str]): A list of words or phrases to search for in the 'description' field.
+
+        Returns:
+            list: A list of matching pet documents, or an empty list if none found.
         """
 
         if self.collection is None:
             print("No connection to the collection.")
             return []
 
-        # Tworzymy zapytanie z wyrażeniem regularnym na słowa kluczowe (case-insensitive)
+        # Creating regex for keywords
         conditions = [{"description": {"$regex": word, "$options": "i"}} for word in keywords]
 
         query = {
@@ -260,11 +277,18 @@ class PetAdoptionDatabase:
 
     def get_pets_by_age(self, order: str, n: int = 1, adopted: Optional[bool] = None) -> List[dict]:
         """
-        Zwraca listę n zwierząt o najmniejszym lub największym wieku.
+        Returns a list of n pets with the lowest or highest age, depending on the order.
 
         Args:
-        order (str): Wymagany. "youngest" - najmłodsze, "oldest" - najstarsze.
-        n (int): liczba zwierząt do zwrócenia (domyślnie 1).
+            order (str): Required. "youngest" for the youngest pets, "oldest" for the oldest.
+            n (int): Number of pets to return (default is 1).
+            adopted (bool, optional):
+                - True: only return adopted pets,
+                - False: only return not adopted pets,
+                - None: include all pets regardless of adoption status.
+
+        Returns:
+            List[dict]: A list of pet documents sorted by age.
         """
 
         allowed_orders = ["youngest", "oldest"]
@@ -287,14 +311,14 @@ class PetAdoptionDatabase:
 
         if pets:
             print(f"Found {len(pets)} pets ({order})", end='')
-        if adopted is True:
-            print(" that are adopted:")
-        elif adopted is False:
-            print(" that are not adopted:")
-        else:
-            print(":")
-        for pet in pets:
-            pprint.pprint(pet)
+            if adopted is True:
+                print(" that are adopted:")
+            elif adopted is False:
+                print(" that are not adopted:")
+            else:
+                print(":")
+            for pet in pets:
+                pprint.pprint(pet)
         else:
             print("No pets found in the collection matching the criteria.")
 
@@ -308,15 +332,19 @@ class PetAdoptionDatabase:
             comparison: Optional[str] = None
     ) -> List[dict]:
         """
-        Returns a list of pets filtered and sorted by shelter stay duration.
+        Returns a list of pets filtered and sorted by their duration in the shelter.
 
         Args:
-            stay_type (str): "longest" or "shortest" — sort order.
-            n (int): number of records to return.
-            threshold_months (int, optional): threshold in months for filtering.
-            comparison (str, optional): "longer" or "shorter" — filter pets
-                                        with daysInShelter longer/shorter than threshold_months.
+            stay_type (str): "longest" or "shortest" — determines the sorting order.
+            n (int): Number of pets to return.
+            threshold_months (int, optional): Threshold value in months for filtering.
+            comparison (str, optional):
+                "longer" — include pets that stayed longer than the threshold.
+                "shorter" — include pets that stayed shorter than the threshold.
+                None — no threshold filtering applied.
 
+        Returns:
+            List[dict]: List of pet documents sorted by shelter stay duration.
         """
         allowed_stay_types = ["longest", "shortest"]
         allowed_comparisons = ["longer", "shorter", None]
@@ -332,7 +360,6 @@ class PetAdoptionDatabase:
 
         sort_order = -1 if stay_type == "longest" else 1
 
-        # Budujemy zapytanie
         query = {"adoption.daysInShelter": {"$exists": True, "$ne": None}}
 
         if comparison in ["longer", "shorter"] and threshold_months is not None:
@@ -342,7 +369,6 @@ class PetAdoptionDatabase:
             else:  # comparison == "shorter"
                 query["adoption.daysInShelter"]["$lt"] = threshold_days
 
-        # Pobieramy dokumenty
         pets = list(self.collection.find(query).sort("adoption.daysInShelter", sort_order).limit(n))
 
         if pets:
@@ -362,12 +388,17 @@ class PetAdoptionDatabase:
 
     def pets_ready_for_adoption(self) -> List[dict]:
         """
-        Prints pets ready for adoption:
-        - not adopted,
-        - vaccinated,
-        - healthy (no serious injuries and checked),
-        - sterilized,
-        - dewormed.
+        Returns a list of pets that are ready for adoption.
+
+        Criteria:
+        - Not adopted
+        - Vaccinated
+        - Healthy or minor injury (no serious injury or unknown status)
+        - Sterilized
+        - Dewormed
+
+        Returns:
+            List[dict]: List of pets matching the criteria.
         """
 
         if self.collection is None:
@@ -393,20 +424,23 @@ class PetAdoptionDatabase:
 
     def is_ready_for_adoption(self, pet_id: int) -> Optional[bool]:
         """
-        Checks if the pet with the given id is ready for adoption.
+        Checks if the pet with the given ID is ready for adoption.
 
-        Ready means:
-        - not adopted
-        - vaccinated == "Yes"
-        - dewormed == "Yes"
-        - sterilized == "Yes"
-        - health != "Serious Injury"
+        A pet is considered ready if:
+        - Not adopted
+        - Vaccinated == "Yes"
+        - Dewormed == "Yes"
+        - Sterilized == "Yes"
+        - Health is "Healthy" or "Minor Injury"
 
         Args:
-            pet_id (str or ObjectId): the _id of the pet.
+            pet_id (int): The _id of the pet.
 
         Returns:
-            bool: True if ready, False if not ready, None if pet not found or error.
+            Optional[bool]:
+                - True if ready for adoption
+                - False if not ready
+                - None if pet not found or connection error
         """
         if self.collection is None:
             print("No connection to the collection.")
@@ -445,16 +479,17 @@ class PetAdoptionDatabase:
     def prepare_pet_for_adoption(self, pet_id: int) -> Optional[dict]:
         """
         Prepares a pet for adoption by updating its medical status:
-        - Sets vaccinated, dewormed, sterilized to "Yes"
-        - Tries to improve health condition based on probabilities:
-          - "Minor Injury" → 60% chance to become "Healthy"
-          - "Unknown"/"Serious Injury" → 40% "Healthy", 40% "Minor Injury", 20% unchanged
+        - Sets 'vaccinated', 'dewormed', and 'sterilized' to "Yes"
+        - Attempts to improve the pet's health condition probabilistically:
+            - "Minor Injury" - 60% chance to become "Healthy"
+            - "Unknown" or "Serious Injury" -
+                60% chance of becoming "Healthy", 40% chance of changing to "Minor Injury"
 
         Args:
-            pet_id (int): The _id of the pet
+            pet_id (int): The _id of the pet.
 
         Returns:
-            dict: The updated pet document if successful, None otherwise
+            Optional[dict]: The updated pet document if successful, or None on error.
         """
         if self.collection is None:
             print("No connection to the collection.")
@@ -470,7 +505,6 @@ class PetAdoptionDatabase:
             medical = pet.get("medical", {})
             current_health = medical.get("health")
 
-            # Determine new health based on probability
             if current_health == "Minor Injury":
                 new_health = "Healthy" if random.random() < 0.6 else "Minor Injury"
             elif current_health in ["Unknown", "Serious Injury"]:
@@ -482,7 +516,6 @@ class PetAdoptionDatabase:
             else:
                 new_health = current_health
 
-            # Update document
             update_result = self.collection.update_one(
                 {"_id": pet_id},
                 {
@@ -508,6 +541,20 @@ class PetAdoptionDatabase:
             return None
 
     def adopt_pet(self, pet_id: int) -> dict:
+        """
+        Marks the pet as adopted by updating the adoption fields:
+        - Sets adopted to True
+        - Sets adoptionDate to today
+        - Calculates daysInShelter from rescueDate
+        - Sets adoptionPeriod based on daysInShelter
+
+        Args:
+            pet_id (int): The _id of the pet to adopt.
+
+        Returns:
+            dict: Updated pet document if successful, empty dict otherwise.
+        """
+
         if self.collection is None:
             print("No connection to the collection.")
             return {}
@@ -548,7 +595,11 @@ class PetAdoptionDatabase:
 
     def get_pet_of_the_day(self) -> Optional[dict]:
         """
-        Zwraca "Zwierzaka dnia" na podstawie bieżącej daty.
+        Returns the "Pet of the Day" based on the current date.
+        Uses a hash of today's date to select a pseudo-random pet consistently for the day.
+
+        Returns:
+            dict or None: The selected pet document or None if no pets available or error occurs.
         """
         if self.collection is None:
             print("No connection to the collection.")
@@ -586,6 +637,22 @@ class PetAdoptionDatabase:
             limit: int = 0,
             order: int = -1  # -1 = descending, 1 = ascending
     ) -> Optional[dict]:
+        """
+        Returns statistics about adopted and/or rescued pets filtered by location and time.
+
+        Args:
+            adopted (bool): Include adopted pets statistics (default True).
+            rescued (bool): Include rescued pets statistics (default False).
+            city (str or list): City name(s) to filter by, or 'all' for no filtering (default 'all').
+            month (int): Month number (1-12) to filter by, 0 means no month filtering (default 0).
+            year (int): Year to filter by, 0 means current year (default 0). (if month = 0 and year = 0 then filter this month)
+            mode (str): "sum" for total count, "groupby" to group counts by location (default "groupby").
+            limit (int): Limit the number of groups returned (default 0 = no limit).
+            order (int): Sort order of results by count: -1 descending, 1 ascending (default -1).
+
+        Returns:
+            dict or None: Statistics dictionary or None if no connection.
+        """
         if self.collection is None:
             print("No connection to the collection.")
             return None
@@ -594,13 +661,17 @@ class PetAdoptionDatabase:
         today = datetime.today()
         if month == 0 and year == 0:
             year, month = today.year, today.month
-
-        if month == 0 and year != 0:
-            start = datetime(year, 1, 1)
-            end = datetime(year + 1, 1, 1)
-        else:
             start = datetime(year, month, 1)
             end = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+        elif month == 0 and year != 0:
+            start = datetime(year, 1, 1)
+            end = datetime(year + 1, 1, 1)
+        elif month != 0 and year != 0:
+            start = datetime(year, month, 1)
+            end = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+        else:
+            print("When month specified, year should be also specified!")
+            return None
 
         # City filter
         if isinstance(city, str) and city.lower() == 'all':
