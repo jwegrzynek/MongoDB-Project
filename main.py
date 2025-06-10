@@ -51,3 +51,18 @@ if __name__ == "__main__":
     # pet_db.is_ready_for_adoption(14993)
     pet_db.adopt_pet(14990)
 
+    print("Rozkład adopcji według typu i lokalizacji:")
+    distribution = pet_db.adoption_distribution()
+    for key, value in distribution.items():
+        print(f"{key}: {value}")
+
+    # Wywołanie dla typu "Dog"
+    top_locations = pet_db.top_locations_for_type("Dog")
+    print("Top 5 miast dla psów:")
+    for loc in top_locations:
+        print(f"{loc['location']}: {loc['count']} adopcji")
+
+    year = 2024
+    month = 5
+    adopted_count = pet_db.count_adopted_pets_by_month(year, month)
+    print(f"Liczba zwierząt adoptowanych w {year}-{month:02d}: {adopted_count}")

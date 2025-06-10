@@ -449,3 +449,76 @@ class PetAdoptionDatabase:
         except Exception as e:
             print(f"Error during adoption process: {e}")
             return {}
+
+    # Zliczenie adopcji dla kota/psa w danej lokalizacji
+    def adoption_distribution(self) -> dict:
+        """
+        Zwraca rozkład adopcji w formacie:
+        {"type/location": count, ...} np. {"Dog/Warszawa": 15}
+        """
+        if self.collection is None:
+            print("⚠️ Brak połączenia z kolekcją.")
+            return {}
+
+        pipeline = [
+            {"$match": {"adoption.adopted": True}},
+            {"$group": {
+                "_id": {"type": "$type", "location": "$location", "adoption_id": "$_id"},
+                "quantity": {"$first": "$quantity"}
+            }},
+            {"$group": {
+                "_id": {"type": "$_id.type", "location": "$_id.location"},
+                "count": {"$sum": 1}
+            }},
+            {"$sort": {"count": -1}}
+        ]
+
+        result = list(self.collection.aggregate(pipeline))
+        return {f"{item['_id']['type']}/{item['_id']['location']}": item["count"] for item in result}
+
+    # Zliczenie dla wybranego typu zwierzęcia (kot/pies), w których miejscach jest najwięcej jego adopcji
+    def top_locations_for_type(self, animal_type: str) -> list:
+        """
+        Zwraca listę słowników z 5 najaktywniejszymi miastami dla danego typu zwierząt.
+        Format: [{"location": "Warszawa", "count": 12}, ...]
+        """
+        if self.collection is None:
+            print("⚠️ Brak połączenia z kolekcją.")
+            return []
+
+        pipeline = [
+            {"$match": {"adoption.adopted": True, "type": animal_type}},
+            {"$group": {
+                "_id": {"location": "$location", "adoption_id": "$_id"},
+                "quantity": {"$first": "$quantity"}
+            }},
+            {"$group": {
+                "_id": "$_id.location",
+                "count": {"$sum": 1}
+            }},
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ]
+
+        result = list(self.collection.aggregate(pipeline))
+        return [{"location": item["_id"], "count": item["count"]} for item in result]
+
+    from datetime import datetime
+
+    def count_adopted_pets_by_month(self, year: int, month: int) -> int:
+        """
+        Zwraca liczbę zwierząt adoptowanych w danym miesiącu.
+        Liczy po dokumentach, zakładając że każdy dokument to jedno zwierzę.
+        """
+        if self.collection is None:
+            print("⚠️ Brak połączenia z kolekcją.")
+            return 0
+
+        start = datetime(year, month, 1)
+        end = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+
+        count = self.collection.count_documents({
+            "adoption.adopted": True,
+            "adoption.adoptionDate": {"$gte": start, "$lt": end}
+        })
+        return count
