@@ -1,3 +1,5 @@
+import hashlib
+import random
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
 from typing import Union, Optional
@@ -5,7 +7,7 @@ import pymongo
 from bson import ObjectId
 import pprint
 from typing import List
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 class PetAdoptionDatabase:
@@ -52,25 +54,87 @@ class PetAdoptionDatabase:
         return counter["seq"]
 
     # CRUD - Create
-    def create_pet(self, pet_data: dict) -> Optional[dict]:
+    def create_pet(
+            self,
+            name: str = None,
+            type: str = "Dog",
+            age: int = 0,
+            breed_primary: str = None,
+            breed_secondary: str = None,
+            gender: str = "Unknown",
+            colors: list = None,
+            maturity_size: str = "Unknown",
+            fur_length: str = "Unknown",
+            vaccinated: str = "Unknown",
+            dewormed: str = "Unknown",
+            sterilized: str = "Unknown",
+            health: str = "Unknown",
+            quantity: int = 1,
+            fee: int = 0,
+            rescuer_id: str = "",
+            rescue_date: Optional[datetime] = None,
+            description: str = None,
+            location: str = "Unknown",
+            adopted: bool = False,
+            adoption_date: Optional[datetime] = None,
+            adoption_period: str = "null",
+            days_in_shelter: Optional[int] = None
+    ) -> Optional[dict]:
         """
-        Tworzy nowy dokument w kolekcji z danymi 'pet_data'.
-        Zwraca wstawiony dokument z nadanym id lub None w przypadku błędu.
+        Creates a new pet document based on the given attributes and inserts it into the database.
+
+        Returns the inserted document or None on failure.
         """
         if self.collection is None:
             print("No connection to the collection.")
             return None
 
-        pet_data["_id"] = self._get_next_sequence()
+        try:
+            pet_data = {
+                "_id": self._get_next_sequence(),
+                "name": name,
+                "type": type,
+                "age": age,
+                "breed": {
+                    "primary": breed_primary,
+                    "secondary": breed_secondary
+                },
+                "gender": gender,
+                "colors": colors if colors else [],
+                "maturitySize": maturity_size,
+                "furLength": fur_length,
+                "medical": {
+                    "vaccinated": vaccinated,
+                    "dewormed": dewormed,
+                    "sterilized": sterilized,
+                    "health": health
+                },
+                "quantity": quantity,
+                "fee": fee,
+                "rescuerId": rescuer_id,
+                "rescueDate": rescue_date or datetime.today(),
+                "description": description,
+                "location": location,
+                "adoption": {"adopted": adopted} if adopted is False else {
+                    "adopted": adopted,
+                    "adoptionDate": adoption_date,
+                    "adoptionPeriod": adoption_period,
+                    "daysInShelter": days_in_shelter
+                }
+            }
 
-        result = self.collection.insert_one(pet_data)
-        if result.inserted_id:
-            new_doc = self.collection.find_one({"_id": result.inserted_id})
-            print("Document created:")
-            pprint.pprint(new_doc)
-            return new_doc
-        else:
-            print("Failed to insert document.")
+            result = self.collection.insert_one(pet_data)
+            if result.inserted_id:
+                new_doc = self.collection.find_one({"_id": result.inserted_id})
+                print("Document created:")
+                pprint.pprint(new_doc)
+                return new_doc
+            else:
+                print("Failed to insert document.")
+                return None
+
+        except Exception as e:
+            print(f"Error creating pet: {e}")
             return None
 
     # CRUD - Read
@@ -131,38 +195,8 @@ class PetAdoptionDatabase:
             print("No matching document found to delete.")
             return None
 
-    # Szukamy wolnych zwierząt do adopcji
-    def find_available_pets(self) -> list:
-        """
-        Zwraca listę wszystkich wolnych zwierząt do adopcji (np. adopted=False).
-        """
-        if self.collection is None:
-            print("No connection to the collection.")
-            return []
-
-        # Zakładamy, że pole 'adopted' oznacza czy zwierzę zostało adoptowane
-        available_pets = list(self.collection.find({"adoption.adopted": False}))
-        if available_pets:
-            print(f"Found {len(available_pets)} available pets:")
-            for pet in available_pets:
-                pprint.pprint(pet)
-        else:
-            print("No available pets found.")
-        return available_pets
-
-    # # Wyszukiwanie zwierząt do wybranej kwoty
-    # def find_pets_by_fee(self, max_fee: int) -> list:
-    #     """
-    #     Zwraca listę zwierząt, których opłata adopcyjna nie przekracza podanej kwoty.
-    #     """
-    #     if self.collection is None:
-    #         print("No connection to the collection.")
-    #         return []
-    #     pets = list(self.collection.find({"fee": {"$lte": max_fee}}))
-    #     return pets
-
-    def find_pets_to_adoption(self, pet_type: str = "any", max_age: int = -1, max_fee: int = -1,
-                              location: str = 'any') -> list:
+    def find_pets_for_adoption(self, pet_type: str = "any", max_age: int = -1, max_fee: int = -1,
+                               location: str = 'any', maturity_size: str = 'any', fur_length: str = 'any') -> list:
         """
         Zwraca listę zwierząt danego typu, młodszych niż max_age i dostępnych do adopcji.
         """
@@ -184,12 +218,21 @@ class PetAdoptionDatabase:
         if location.lower() != "any":
             query["location"] = location
 
-        pets = list(self.collection.find(query))
-        return pets
+        if maturity_size.lower() != "any":
+            query["maturitySize"] = maturity_size
 
-    # metoda Weroniki
+        if fur_length.lower() != "any":
+            query["furLength"] = fur_length
+
+        available_pets = list(self.collection.find(query))
+        if available_pets:
+            print(f"Found {len(available_pets)} available pets.")
+            return available_pets
+        else:
+            print("No available pets found.")
+            return []
+
     def find_pets_by_description(self, keywords: list[str]) -> list:
-
         """
         Zwraca listę dostępnych zwierząt do adopcji, których opis zawiera dowolne z podanych słów kluczowych.
         """
@@ -210,22 +253,12 @@ class PetAdoptionDatabase:
 
         if pets:
             print(f"Found {len(pets)} matching pets:")
-            for pet in pets:
-                pprint.pprint(pet)
+            return pets
         else:
             print("No available pets found.")
+            return []
 
-        return pets
-
-    #
-
-    def get_pets_by_age(
-            self,
-            order: str,
-            n: int = 1,
-            adopted: Optional[bool] = None
-    ) -> List[dict]:
-
+    def get_pets_by_age(self, order: str, n: int = 1, adopted: Optional[bool] = None) -> List[dict]:
         """
         Zwraca listę n zwierząt o najmniejszym lub największym wieku.
 
@@ -327,12 +360,12 @@ class PetAdoptionDatabase:
 
         return pets
 
-    def ready_for_adoption(self) -> List[dict]:
+    def pets_ready_for_adoption(self) -> List[dict]:
         """
         Prints pets ready for adoption:
         - not adopted,
         - vaccinated,
-        - healthy (no injuries),
+        - healthy (no serious injuries and checked),
         - sterilized,
         - dewormed.
         """
@@ -344,7 +377,7 @@ class PetAdoptionDatabase:
         query = {
             "adoption.adopted": False,
             "medical.vaccinated": "Yes",
-            "medical.health": "Healthy",
+            "medical.health": {"$in": ["Healthy", "Minor Injury"]},
             "medical.sterilized": "Yes",
             "medical.dewormed": "Yes"
         }
@@ -353,8 +386,6 @@ class PetAdoptionDatabase:
 
         if pets:
             print(f"Found {len(pets)} pet(s) ready for adoption:")
-            for pet in pets:
-                pprint.pprint(pet)
         else:
             print("No pets ready for adoption found.")
 
@@ -369,7 +400,7 @@ class PetAdoptionDatabase:
         - vaccinated == "Yes"
         - dewormed == "Yes"
         - sterilized == "Yes"
-        - health == "Healthy"
+        - health != "Serious Injury"
 
         Args:
             pet_id (str or ObjectId): the _id of the pet.
@@ -397,7 +428,7 @@ class PetAdoptionDatabase:
                     medical.get("vaccinated") == "Yes" and
                     medical.get("dewormed") == "Yes" and
                     medical.get("sterilized") == "Yes" and
-                    medical.get("health") == "Healthy"
+                    medical.get("health") in ["Healthy", "Minor Injury"]
             )
 
             if is_ready:
@@ -409,6 +440,71 @@ class PetAdoptionDatabase:
 
         except Exception as e:
             print(f"Error checking adoption readiness: {e}")
+            return None
+
+    def prepare_pet_for_adoption(self, pet_id: int) -> Optional[dict]:
+        """
+        Prepares a pet for adoption by updating its medical status:
+        - Sets vaccinated, dewormed, sterilized to "Yes"
+        - Tries to improve health condition based on probabilities:
+          - "Minor Injury" → 60% chance to become "Healthy"
+          - "Unknown"/"Serious Injury" → 40% "Healthy", 40% "Minor Injury", 20% unchanged
+
+        Args:
+            pet_id (int): The _id of the pet
+
+        Returns:
+            dict: The updated pet document if successful, None otherwise
+        """
+        if self.collection is None:
+            print("No connection to the collection.")
+            return None
+
+        try:
+            pet = self.collection.find_one({"_id": pet_id})
+            if pet is None:
+                print(f"No pet found with id {pet_id}")
+                return None
+
+            name = pet.get("name") or "Unnamed"
+            medical = pet.get("medical", {})
+            current_health = medical.get("health")
+
+            # Determine new health based on probability
+            if current_health == "Minor Injury":
+                new_health = "Healthy" if random.random() < 0.6 else "Minor Injury"
+            elif current_health in ["Unknown", "Serious Injury"]:
+                roll = random.random()
+                if roll < 0.6:
+                    new_health = "Healthy"
+                else:
+                    new_health = "Minor Injury"
+            else:
+                new_health = current_health
+
+            # Update document
+            update_result = self.collection.update_one(
+                {"_id": pet_id},
+                {
+                    "$set": {
+                        "medical.vaccinated": "Yes",
+                        "medical.dewormed": "Yes",
+                        "medical.sterilized": "Yes",
+                        "medical.health": new_health
+                    }
+                }
+            )
+
+            if update_result.modified_count > 0:
+                updated_pet = self.collection.find_one({"_id": pet_id})
+                print(f"Pet '{name}' (id: {pet_id}) has been prepared for adoption.")
+                return updated_pet
+            else:
+                print(f"Pet with id: {pet_id} not modified or found.")
+                return pet
+
+        except Exception as e:
+            print(f"Error preparing pet for adoption: {e}")
             return None
 
     def adopt_pet(self, pet_id: int) -> dict:
@@ -450,75 +546,112 @@ class PetAdoptionDatabase:
             print(f"Error during adoption process: {e}")
             return {}
 
-    # Zliczenie adopcji dla kota/psa w danej lokalizacji
-    def adoption_distribution(self) -> dict:
+    def get_pet_of_the_day(self) -> Optional[dict]:
         """
-        Zwraca rozkład adopcji w formacie:
-        {"type/location": count, ...} np. {"Dog/Warszawa": 15}
+        Zwraca "Zwierzaka dnia" na podstawie bieżącej daty.
         """
         if self.collection is None:
-            print("⚠️ Brak połączenia z kolekcją.")
-            return {}
+            print("No connection to the collection.")
+            return None
 
-        pipeline = [
-            {"$match": {"adoption.adopted": True}},
-            {"$group": {
-                "_id": {"type": "$type", "location": "$location", "adoption_id": "$_id"},
-                "quantity": {"$first": "$quantity"}
-            }},
-            {"$group": {
-                "_id": {"type": "$_id.type", "location": "$_id.location"},
-                "count": {"$sum": 1}
-            }},
-            {"$sort": {"count": -1}}
-        ]
+        # Get total count of pets
+        count = self.collection.count_documents({})
+        if count == 0:
+            print("No pets available.")
+            return None
 
-        result = list(self.collection.aggregate(pipeline))
-        return {f"{item['_id']['type']}/{item['_id']['location']}": item["count"] for item in result}
+        # Index based on date
+        today = datetime.now().date().isoformat()  # e.g., '2025-06-10'
+        hash_value = int(hashlib.sha256(today.encode()).hexdigest(), 16)
+        index = hash_value % count
 
-    # Zliczenie dla wybranego typu zwierzęcia (kot/pies), w których miejscach jest najwięcej jego adopcji
-    def top_locations_for_type(self, animal_type: str) -> list:
-        """
-        Zwraca listę słowników z 5 najaktywniejszymi miastami dla danego typu zwierząt.
-        Format: [{"location": "Warszawa", "count": 12}, ...]
-        """
+        pet = self.collection.find().skip(index).limit(1)
+        pet_of_the_day = next(pet, None)
+
+        if pet_of_the_day:
+            print("Pet of the Day:")
+            pprint.pprint(pet_of_the_day)
+        else:
+            print("Failed to retrieve Pet of the Day.")
+        return pet_of_the_day
+
+    def adoption_rescue_stats(
+            self,
+            adopted: bool = True,
+            rescued: bool = False,
+            city='all',
+            month: int = 0,
+            year: int = 0,
+            mode: str = "groupby",  # "sum" or "groupby"
+            limit: int = 0,
+            order: int = -1  # -1 = descending, 1 = ascending
+    ) -> Optional[dict]:
         if self.collection is None:
-            print("⚠️ Brak połączenia z kolekcją.")
-            return []
+            print("No connection to the collection.")
+            return None
 
-        pipeline = [
-            {"$match": {"adoption.adopted": True, "type": animal_type}},
-            {"$group": {
-                "_id": {"location": "$location", "adoption_id": "$_id"},
-                "quantity": {"$first": "$quantity"}
-            }},
-            {"$group": {
-                "_id": "$_id.location",
-                "count": {"$sum": 1}
-            }},
-            {"$sort": {"count": -1}},
-            {"$limit": 5}
-        ]
+        # Time range
+        today = datetime.today()
+        if month == 0 and year == 0:
+            year, month = today.year, today.month
 
-        result = list(self.collection.aggregate(pipeline))
-        return [{"location": item["_id"], "count": item["count"]} for item in result]
+        if month == 0 and year != 0:
+            start = datetime(year, 1, 1)
+            end = datetime(year + 1, 1, 1)
+        else:
+            start = datetime(year, month, 1)
+            end = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
 
-    from datetime import datetime
+        # City filter
+        if isinstance(city, str) and city.lower() == 'all':
+            city_filter = {}
+        elif isinstance(city, list):
+            city_filter = {"location": {"$in": city}}
+        else:
+            city_filter = {"location": city}
 
-    def count_adopted_pets_by_month(self, year: int, month: int) -> int:
-        """
-        Zwraca liczbę zwierząt adoptowanych w danym miesiącu.
-        Liczy po dokumentach, zakładając że każdy dokument to jedno zwierzę.
-        """
-        if self.collection is None:
-            print("⚠️ Brak połączenia z kolekcją.")
-            return 0
+        results = {}
 
-        start = datetime(year, month, 1)
-        end = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+        # Aggregation pipeline
+        def build_pipeline(match_stage):
+            pipeline = [
+                {"$match": match_stage},
+                {"$group": {"_id": "$location", "count": {"$sum": 1}}},
+                {"$sort": {"count": order}}
+            ]
+            if limit > 0:
+                pipeline.append({"$limit": limit})
+            return pipeline
 
-        count = self.collection.count_documents({
-            "adoption.adopted": True,
-            "adoption.adoptionDate": {"$gte": start, "$lt": end}
-        })
-        return count
+        # Adopted pets
+        if adopted:
+            adopted_match = {
+                **city_filter,
+                "adoption.adopted": True,
+                "adoption.adoptionDate": {"$gte": start, "$lt": end}
+            }
+
+            if mode == "sum":
+                count = self.collection.count_documents(adopted_match)
+                results["adopted"] = count
+            else:  # groupby
+                pipeline = build_pipeline(adopted_match)
+                result = self.collection.aggregate(pipeline)
+                results["adopted"] = {doc["_id"]: doc["count"] for doc in result}
+
+        # Rescued pets
+        if rescued:
+            rescued_match = {
+                **city_filter,
+                "rescueDate": {"$gte": start, "$lt": end}
+            }
+
+            if mode == "sum":
+                count = self.collection.count_documents(rescued_match)
+                results["rescued"] = count
+            else:  # groupby
+                pipeline = build_pipeline(rescued_match)
+                result = self.collection.aggregate(pipeline)
+                results["rescued"] = {doc["_id"]: doc["count"] for doc in result}
+
+        return results
